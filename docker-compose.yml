@@ -1,13 +1,13 @@
 services:
-  symposium-discord-api:
+  discord-api:
     build: 
       context: ./discord-api-service/
       dockerfile: Dockerfile
     depends_on:
-      - symposium-fetching-service
+      - fetching-service
     image: symposium-discord-api
 
-  symposium-fetching-service:
+  fetching-service:
     build: 
       context: ./fetching-service
       dockerfile: Dockerfile
