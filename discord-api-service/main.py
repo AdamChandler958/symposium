@@ -1,6 +1,20 @@
-def main():
-    print("Hello from discord-api-service!")
+import discord
 
+from discord.ext import commands
+from dotenv import load_dotenv
+import os
 
-if __name__ == "__main__":
-    main()
+load_dotenv("dev.env")
+
+API_KEY = os.getenv("API_KEY")
+
+intents = discord.Intents.default()
+intents.message_content = True
+
+bot = commands.Bot(command_prefix="!", intents=intents)
+
+@bot.event
+async def on_ready():
+    print(f"Logged in as {bot.user}")
+
+bot.run(API_KEY)
