@@ -1,4 +1,5 @@
 from fastapi import FastAPI
+from fastapi.responses import StreamingResponse
 import uvicorn
 from pytubefix import YouTube
 import ffmpeg
@@ -29,7 +30,14 @@ def retrieve_audio(url: str):
     output_buffer = io.BytesIO(stdout_data)
     output_buffer.seek(0)
 
-    return output_buffer
+    def audio_generator(audio_bytes):
+        yield audio_bytes
+
+    return StreamingResponse(
+        audio_generator(stdout_data),
+        media_type="audio/mp3",
+        headers={"Content-Disposition": "attachment; filename=audio.mp3"}
+    )
 
 if __name__ == "__main__":
     uvicorn.run("main:app", host="0.0.0.0", port=3020, reload=True)
