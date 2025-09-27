@@ -2,9 +2,9 @@ import json
 from youtube_search import YoutubeSearch
 import logging
 from urllib.parse import urlparse, parse_qs
-from typing import Any
-from pytube import YouTube
-from pytube.exceptions import PytubeError
+
+from pytubefix import YouTube
+from urllib.error import HTTPError
 
 logger = logging.getLogger("fetching-service")
 
@@ -21,7 +21,7 @@ def extract_video_id(url: str) -> str | None:
     except Exception:
         return None
     
-def get_video_details_from_url(url: str) -> dict[str, Any]:
+def get_video_details_from_url(url: str) -> dict[str, str]:
     video_id = extract_video_id(url)
 
     if not video_id:
@@ -45,9 +45,9 @@ def get_video_details_from_url(url: str) -> dict[str, Any]:
             'title': video_title,
             'duration': video_duration
         }
-
-    except PytubeError as e:
-        logger.error(f"Pytube Error: Could not fetch video details for {full_url}. {e}")
+    
+    except HTTPError as e:
+        logger.error(f"HTTP Error: An HTTP error occurred while fetching video details ({e.code} - {e.reason}).")
         return None
     
     except Exception as e:
@@ -64,8 +64,8 @@ def fetch_youtube_by_query(query: str):
         if videos:
             first_video = videos[0]
             video_id = first_video.get('id')
-            video_title = first_video.get('title')
-            video_duration = first_video.get('duration')
+            video_title = str(first_video.get('title'))
+            video_duration = str(first_video.get('duration'))
 
             video_url = f"https://www.youtube.com/watch?v={video_id}"
 
