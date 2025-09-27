@@ -15,7 +15,7 @@ app = FastAPI()
 def read_root():
     return {"message": "Fetching service is running"}
 
-@app.get("/stream_metadata")
+@app.get("/stream-metadata")
 def search_metadata(url_query: str) -> MetaDataResponse | None:
     if "youtube.com" in url_query or "youtu.be" in url_query:
         logger.info("Youtube url detected")
