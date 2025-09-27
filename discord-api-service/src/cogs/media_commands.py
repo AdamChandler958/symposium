@@ -2,7 +2,7 @@ import discord
 from discord.ext import commands
 import logging
 
-logger = logging.getLogger(__name__)
+logger = logging.getLogger('discord_api_service')
 
 class MediaCommands(commands.Cog):
     def __init__(self, bot: commands.Bot):
@@ -11,7 +11,7 @@ class MediaCommands(commands.Cog):
     @discord.app_commands.command(name="join", description="Makes the bot join the user's current voice channel.")
     async def join_command(self, interaction: discord.Interaction):
         member = interaction.user
-        logger.info(f"Received join command from user: {member}")
+        logger.info(f"Received join command from server: {interaction.guild_id}")
 
         if member.voice and member.voice.channel:
             channel = member.voice.channel

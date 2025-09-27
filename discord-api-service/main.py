@@ -5,6 +5,7 @@ from dotenv import load_dotenv
 import os
 from src.logging import setup_logger
 import pathlib
+import logging
 
 load_dotenv("dev.env")
 
@@ -16,7 +17,9 @@ intents.voice_states = True
 
 bot = commands.Bot(command_prefix="!", intents=intents)
 
-logger = setup_logger()
+setup_logger()
+
+logger = logging.getLogger('discord_api_service')
 
 async def load_cogs():
     cogs_path = pathlib.Path("src/cogs/")
