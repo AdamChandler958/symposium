@@ -16,7 +16,7 @@ def read_root():
 
 #TODO: This assumes it is a youtube mp3 url. This will be updated later to use metadata passed by
 # the fetching service to determine how to retrieve the data.
-@app.get("/retrieve-audio_stream") 
+@app.get("/retrieve-audio-stream") 
 def retrieve_audio_stream(url: str):
     logger.info(f"Received request to process URL to audio for URL: {url}")
     try:
