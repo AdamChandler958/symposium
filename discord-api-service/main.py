@@ -19,7 +19,7 @@ bot = commands.Bot(command_prefix="!", intents=intents)
 
 setup_logger()
 
-logger = logging.getLogger('discord_api_service')
+logger = logging.getLogger('discord-api-service')
 
 async def load_cogs():
     cogs_path = pathlib.Path("src/cogs/")

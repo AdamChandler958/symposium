@@ -8,4 +8,4 @@ def setup_logger():
         handlers=[logging.StreamHandler()],
     )
 
-    return logging.getLogger("discord_api_service")
+    return logging.getLogger("discord-api-service")

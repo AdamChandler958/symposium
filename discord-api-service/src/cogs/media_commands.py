@@ -2,7 +2,7 @@ import discord
 from discord.ext import commands
 import logging
 
-logger = logging.getLogger('discord_api_service')
+logger = logging.getLogger('discord-api-service')
 STREAMING_SERVICE = "http://processing-service:3020/retrieve-audio_stream"
 
 class MediaCommands(commands.Cog):
