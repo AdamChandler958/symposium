@@ -5,6 +5,7 @@ services:
       dockerfile: Dockerfile
     depends_on:
       - fetching-service
+      - promtail
     image: symposium-discord-api
 
   fetching-service:
@@ -14,6 +15,9 @@ services:
     image: symposium-fetching-service
     ports:
       - "3000:3000"
+    depends_on:
+      - processing-service
+      - promtail
 
   processing-service:
     build: 
@@ -23,3 +27,39 @@ services:
     ports:
       - "3020:3020"
 
+  loki:
+    image: grafana/loki:latest
+    ports:
+      - "3100:3100"
+    command: -config.file=/etc/loki/config.yaml
+    volumes:
+      - ./loki-config.yaml:/etc/loki/config.yaml
+      - loki-data:/loki
+
+  promtail:
+    image: grafana/promtail:latest
+    volumes:
+      - /var/lib/docker/containers:/var/lib/docker/containers:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - ./promtail-config.yml:/etc/promtail/config.yml:ro
+    command: -config.file=/etc/promtail/config.yml
+    depends_on:
+      - loki
+
+  grafana:
+    image: grafana/grafana:latest
+    ports:
+      - "3050:3000"
+    volumes:
+      - grafana-data:/var/lib/grafana
+    environment:
+      - GF_INSTALL_PLUGINS=loki
+      - GF_AUTH_ANONYMOUS_ENABLED=true
+      - GF_AUTH_ANONYMOUS_ORG_ROLE=Admin
+      - GF_DASHBOARDS_DEFAULT_HOME_DASHBOARD_PATH=/usr/share/grafana/public/dashboards/home.json
+    depends_on:
+      - loki
+
+volumes:
+  loki-data:
+  grafana-data:
