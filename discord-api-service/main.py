@@ -3,7 +3,7 @@ import discord
 from discord.ext import commands
 from dotenv import load_dotenv
 import os
-import requests
+from src.logging import setup_logger
 
 load_dotenv("dev.env")
 
@@ -14,15 +14,10 @@ intents.message_content = True
 
 bot = commands.Bot(command_prefix="!", intents=intents)
 
+logger = setup_logger()
+
 @bot.event
 async def on_ready():
-    print(f"Logged in as {bot.user}")
-
-    response = requests.get("http://fetching-service:3000")
-    response.raise_for_status()
-    data = response.json()
-    print(data)
-
-
+    logger.info(f"Logged in as {bot.user}")
 
 bot.run(API_KEY)
