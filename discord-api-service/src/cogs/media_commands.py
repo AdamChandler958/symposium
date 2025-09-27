@@ -60,6 +60,45 @@ class MediaCommands(commands.Cog):
                 ephemeral=True
             )
 
+    @discord.app_commands.command(name="pause", description="Pauses the current track.")
+    async def pause_command(self, interaction: discord.Interaction):
+        voice_client = interaction.guild.voice_client
+        if not voice_client:
+            return await interaction.response.send_message(
+                "Not currently connected to a voice channel",
+                ephemeral=True
+            )
+        
+        if voice_client.is_playing():
+            voice_client.pause()
+            logger.info(f"Audio paused in guild: {interaction.guild_id}")
+            await interaction.response.send_message("Audio paused.")
+
+        elif voice_client.is_paused():
+            await interaction.response.send_message("The audio player is already paused.", ephemeral=True)
+
+        else:
+            await interaction.response.send_message("Not currently playing any media.", ephemeral=True)
+
+    @discord.app_commands.command(name="resume", description="Resumes the currently paused audio.")
+    async def resume_command(self, interaction: discord.Interaction):
+        voice_client = interaction.guild.voice_client
+
+        if not voice_client:
+            return await interaction.response.send_message("I'm not connected to a voice channel.", ephemeral=True)
+
+        if voice_client.is_paused():
+            voice_client.resume()
+            logger.info(f"Audio resumed in guild: {interaction.guild.id}")
+            await interaction.response.send_message("Audio resumed.")
+            
+        elif voice_client.is_playing():
+            await interaction.response.send_message("The audio is already playing.", ephemeral=True)
+            
+
+        else:
+            await interaction.response.send_message("No audio is currently paused to resume.", ephemeral=True)
+        
 
 async def setup(bot: commands.Bot):
     await bot.add_cog(MediaCommands(bot))
