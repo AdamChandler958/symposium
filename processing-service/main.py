@@ -3,8 +3,12 @@ from fastapi.responses import StreamingResponse
 import uvicorn
 from pytubefix import YouTube
 import ffmpeg
+import logging
+from src.logging import setup_logger
 
 app = FastAPI()
+setup_logger()
+logger = logging.getLogger("processing-service")
 
 @app.get("/")
 def read_root():
@@ -14,6 +18,7 @@ def read_root():
 # the fetching service to determine how to retrieve the data.
 @app.get("/retrieve-audio_stream") 
 def retrieve_audio_stream(url: str):
+    logger.info(f"Received request to process URL to audio for URL: {url}")
     try:
         yt_stream = YouTube(url)
         audio_url = yt_stream.streams.filter(only_audio=True).first().url
@@ -45,7 +50,7 @@ def retrieve_audio_stream(url: str):
         )
 
     except Exception as e:
-        print(f"Error processing audio stream: {e}")
+        logger.error(f"Error occured while processing audio with error: {e}")
         raise e
 
 if __name__ == "__main__":

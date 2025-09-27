@@ -2,7 +2,7 @@ import discord
 from discord.ext import commands
 import logging
 
-logger = logging.getLogger('discord_api_service')
+logger = logging.getLogger('discord-api-service')
 
 class BasicCommands(commands.Cog):
     def __init__(self, bot: commands.Bot):

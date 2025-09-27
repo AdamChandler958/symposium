@@ -1,0 +1,38 @@
+server:
+  http_listen_port: 9080
+  grpc_listen_port: 0
+
+positions:
+  filename: /tmp/positions.yaml # Tracks which logs have been sent
+
+clients:
+  # Configuration for sending logs to Loki
+  - url: http://loki:3100/loki/api/v1/push # 'loki' is the service name in docker-compose
+
+scrape_configs:
+  - job_name: system
+    # Discover all running containers on the Docker host
+    docker_sd_configs:
+      - host: unix:///var/run/docker.sock
+        refresh_interval: 5s
+        
+    relabel_configs:
+      # Extract the container name and use it as a label
+      - source_labels: ['__meta_docker_container_name']
+        regex: /(.+)
+        target_label: container_name
+        
+      # Extract the image name and use it as a label
+      - source_labels: ['__meta_docker_image_name']
+        regex: (.+):.
+        target_label: image_name
+
+      # Keep only logs from your application services
+      - source_labels: ['__meta_docker_container_label_com_docker_compose_service']
+        regex: (discord-api|fetching-service|processing-service)
+        action: keep
+        target_label: job # Use 'job' as the label key for filtering in Grafana
+
+      # Relabel the Docker log stream (stdout/stderr)
+      - source_labels: ['__meta_docker_log_stream']
+        target_label: stream

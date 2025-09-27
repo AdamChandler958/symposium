@@ -1,5 +1,10 @@
 from fastapi import FastAPI
 import uvicorn
+from src.logging import setup_logger
+import logging
+
+setup_logger()
+logger = logging.getLogger("fetching-service")
 
 app = FastAPI()
 
