@@ -14,3 +14,12 @@ services:
     image: symposium-fetching-service
     ports:
       - "3000:3000"
+
+  processing-service:
+    build: 
+      context: ./processing-service
+      dockerfile: Dockerfile
+    image: symposium-processing-service
+    ports:
+      - "3020:3020"
+
