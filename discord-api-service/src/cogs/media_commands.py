@@ -6,6 +6,7 @@ import asyncio
 import requests
 import urllib
 import urllib.parse
+import random
 
 logger = logging.getLogger('discord-api-service')
 STREAMING_SERVICE = "http://processing-service:3020/retrieve-audio-stream"
@@ -16,7 +17,12 @@ class MediaCommands(commands.Cog):
         self.bot = bot
         self.song_queue = deque()
         self.current_track_playing = None
-        self.last_interaction_info = {}
+        self.current_track_metadata = None 
+        self.last_interaction_info = {} 
+        
+
+        self.loop_mode = 0 
+        self.original_song_queue = deque() 
 
     @discord.app_commands.command(name="join", description="Makes the bot join the user's current voice channel.")
     async def join_command(self, interaction: discord.Interaction):
@@ -53,32 +59,59 @@ class MediaCommands(commands.Cog):
                 if channel:
                     await channel.send(f"An error occurred during playback: {error}")
             
-            if self.song_queue:
+            if self.loop_mode == 1 and self.current_track_metadata:
+                
+                next_url, next_track, next_duration = self.current_track_metadata
+                logger.info(f"Looping current track: {next_track}")
+                
+            elif self.loop_mode == 2 and self.current_track_metadata and not self.song_queue:
+
+                finished_track_metadata = self.current_track_metadata
+                self.song_queue.append(finished_track_metadata)
+                
                 next_url, next_track, next_duration = self.song_queue.popleft()
+                self.song_queue.append(finished_track_metadata) 
+                
+                logger.info("Queue finished, starting loop from the beginning.")
+                
+            elif self.song_queue:
+
+                next_url, next_track, next_duration = self.song_queue.popleft()
+                if self.loop_mode == 2:
+                    self.song_queue.append(self.current_track_metadata)
+                
                 logger.info(f"Playing next song from queue in guild {guild_id}: {next_track}")
-
-                try:
-                    encoded_url = urllib.parse.quote_plus(next_url)
-                    full_url = f"{STREAMING_SERVICE}?url={encoded_url}"
-                    source = discord.FFmpegPCMAudio(
-                        full_url,
-                        before_options='-reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 5'
-                    )
-                    source = discord.PCMVolumeTransformer(source, volume=0.5) 
-
-                    # Correctly set the after callback to pass the error and guild_id
-                    voice_client.play(source, after=lambda e: self.play_next_in_queue(e, guild_id))
-                    self.current_track_playing = next_track
-
-                    if channel:
-                        await channel.send(f"Now playing next: **{next_track}**: `{next_duration}`")
-                except Exception as e:
-                    logger.error(f"Error playing next song from queue in guild {guild_id}: {e}")
-                    await _play_next()
+            
             else:
                 self.current_track_playing = None 
+                self.current_track_metadata = None
                 if channel:
-                    await channel.send("Queue finished. Disconnecting in a moment if idle.")
+                    await channel.send("Queue finished.")
+                return
+            
+            self.current_track_metadata = (next_url, next_track, next_duration)
+
+            try:
+                encoded_url = urllib.parse.quote_plus(next_url)
+                full_url = f"{STREAMING_SERVICE}?url={encoded_url}"
+                source = discord.FFmpegPCMAudio(
+                    full_url,
+                    before_options='-reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 5'
+                )
+                source = discord.PCMVolumeTransformer(source, volume=0.5) 
+
+                voice_client.play(source, after=lambda e: self.play_next_in_queue(e, guild_id))
+                self.current_track_playing = next_track
+
+                if channel and self.loop_mode != 1: 
+                    await channel.send(f"Now playing next: **{next_track}**: `{next_duration}`")
+                elif channel and self.loop_mode == 1:
+                     await channel.send(f"Looping current track: **{next_track}**")
+            except Exception as e:
+                logger.error(f"Error playing next song from queue in guild {guild_id}: {e}")
+                await _play_next()
+
+
 
         asyncio.run_coroutine_threadsafe(_play_next(), self.bot.loop)
 
@@ -101,8 +134,11 @@ class MediaCommands(commands.Cog):
         if response.status_code == 200:
             data = response.json()
 
+        track_metadata = (data.get('url'), data.get('title'), data.get('duration'))
+
         if voice_client.is_playing() or voice_client.is_paused():
-            self.song_queue.append((data.get('url'), data.get('title'), data.get('duration')))
+            self.song_queue.append(track_metadata)
+            self.original_song_queue.append(track_metadata)
             logger.info(f"Added to queue: {data.get('title')}. Queue length: {len(self.song_queue)}")
             await interaction.followup.send(f"Queued **{data.get('title')}** at position **#{len(self.song_queue)}**.")
         else:
@@ -121,6 +157,8 @@ class MediaCommands(commands.Cog):
 
                 logger.info(f"Starting playback: {data.get('title')}")
                 self.current_track_playing = data.get('title')
+                self.current_track_metadata = track_metadata
+                self.original_song_queue.append(track_metadata)
 
                 await interaction.followup.send(f"Now playing audio for: **{data.get('title')}**")
 
@@ -197,13 +235,15 @@ class MediaCommands(commands.Cog):
             
             tracks.append(f"**{index + 1}.** {track} : `{duration}`")
 
+        loop_status = {0: "Off", 1: "Track", 2: "Queue"}.get(self.loop_mode, "Off")
+
         embed = discord.Embed(
             title="Playback Queue",
             description=f"Showing **{len(tracks)}** tracks out of **{len(self.song_queue)}** total.",
             color=discord.Color.green()
         )
 
-        embed.add_field(name="Now Playing", value=self.current_track_playing, inline=False)
+        embed.add_field(name="Now Playing", value=f"{current_track_url} (Loop: **{loop_status}**)", inline=False)
         
         embed.add_field(name="Up Next", value="\n".join(tracks), inline=False)
         
@@ -221,12 +261,59 @@ class MediaCommands(commands.Cog):
             return await interaction.response.send_message("I'm not connected to a voice channel.", ephemeral=True)
         
         if voice_client.is_playing() or voice_client.is_paused():
+            
+            if self.loop_mode == 2 and self.current_track_metadata:
+                self.song_queue.append(self.current_track_metadata)
+                
+            
+            if self.loop_mode == 1:
+                self.loop_mode = 0
+                await interaction.channel.send("Track loop was disabled upon skip.")
+            
             current_track = self.current_track_playing
             voice_client.stop()
             logger.info(f"Skipped track: {current_track}")
             await interaction.response.send_message(f"Skipped **{current_track}**.")
         else:
             await interaction.response.send_message("Not currently playing any track to skip.", ephemeral=True)
-            
+
+    @discord.app_commands.command(name="shuffle", description="Shuffles the current playback queue.")
+    async def shuffle_command(self, interaction: discord.Interaction):
+        await interaction.response.defer()
+
+        if not self.song_queue:
+            return await interaction.followup.send("The queue is currently empty. Nothing to shuffle.", ephemeral=True)
+        
+        temp_queue = list(self.song_queue)
+        
+        if len(temp_queue) == len(self.original_song_queue) and all(temp_queue[i] != self.original_song_queue[i] for i in range(len(temp_queue))):
+            self.song_queue = self.original_song_queue.copy()
+            logger.info(f"Unshuffled queue in guild: {interaction.guild_id}")
+            return await interaction.followup.send("Queue **unshuffled** (reverted to original order).")
+
+        random.shuffle(temp_queue)
+        self.song_queue = deque(temp_queue)
+        
+        logger.info(f"Shuffled queue in guild: {interaction.guild_id}. New length: {len(self.song_queue)}")
+        await interaction.followup.send("Queue **shuffled** successfully!")
+
+    @discord.app_commands.command(name="loop", description="Toggles the playback loop mode.")
+    async def loop_command(self, interaction: discord.Interaction):
+        self.loop_mode = (self.loop_mode + 1) % 3
+
+        if self.loop_mode == 0:
+            message = "Loop mode is now **OFF**"
+        elif self.loop_mode == 1:
+            if not self.current_track_playing:
+                self.loop_mode = 2 
+                message = "No track is playing. Skipping to **Queue Loop** mode"
+            else:
+                message = f"Looping current **Track** (**{self.current_track_playing}**)"
+        elif self.loop_mode == 2:
+            message = "Looping the entire **Queue**"
+        
+        logger.info(f"Loop mode set to {self.loop_mode} in guild: {interaction.guild_id}")
+        await interaction.response.send_message(message)
+
 async def setup(bot: commands.Bot):
     await bot.add_cog(MediaCommands(bot))
