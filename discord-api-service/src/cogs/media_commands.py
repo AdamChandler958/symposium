@@ -56,6 +56,8 @@ class MediaCommands(commands.Cog):
             
             if error:
                 logger.error(f"Playback error in guild {guild_id}: {error}")
+                if "timeout" in str(error).lower() or "end of file" in str(error).lower():
+                    logger.error("Likely stream disconnection/timeout. Check service keep-alive settings.")
                 if channel:
                     await channel.send(f"An error occurred during playback: {error}")
             
