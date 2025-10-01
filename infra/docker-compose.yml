@@ -1,7 +1,7 @@
 services:
   discord-api:
     build: 
-      context: ./discord-api-service/
+      context: ../discord-api-service/
       dockerfile: Dockerfile
     depends_on:
       - fetching-service
@@ -10,7 +10,7 @@ services:
 
   fetching-service:
     build: 
-      context: ./fetching-service
+      context: ../fetching-service
       dockerfile: Dockerfile
     image: symposium-fetching-service
     ports:
@@ -21,7 +21,7 @@ services:
 
   processing-service:
     build: 
-      context: ./processing-service
+      context: ../processing-service
       dockerfile: Dockerfile
     image: symposium-processing-service
     ports:
