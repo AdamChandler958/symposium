@@ -26,26 +26,48 @@ def retrieve_audio_stream(url: str):
         process = (
             ffmpeg
             .input(audio_url)
-            .output('pipe:1', format='mp3', acodec='libmp3lame')
+            .output('pipe:1', format='opus', acodec='libopus')
             .run_async(pipe_stdout=True, pipe_stderr=True)
         )
 
 
         def audio_stream_generator():
-            while True:
-                chunk = process.stdout.read(64 * 1024) 
-                if not chunk:
-                    break
-                yield chunk
-            
-            process.wait()
+            try:
+                while True:
+                    chunk = process.stdout.read(64 * 1024) 
+                    
+                    if chunk:
+                        yield chunk
+                    else:
+                        if process.poll() is not None:
+
+                            logger.info("FFmpeg process finished and pipe exhausted. Breaking generator loop.")
+                            break 
+                        else:
+                            continue 
+
+            except Exception as e:
+                logger.error(f"Error during audio streaming: {e}")
+            finally:
+                return_code = process.wait() 
+                remaining_chunk = process.stdout.read()
+                if remaining_chunk:
+                    yield remaining_chunk
+                    
+                if return_code != 0:
+                    stderr_output = process.stderr.read().decode()
+                    logger.error(f"FFmpeg process exited with error code {return_code}. Stderr: {stderr_output}")
+                else:
+                    logger.info("FFmpeg process completed successfully.")
+                
 
         return StreamingResponse(
             audio_stream_generator(),
-            media_type="audio/mp3",
+            media_type="audio/opus",
             headers={
-                "Content-Type": "audio/mp3", 
-                "Content-Disposition": "attachment; filename=audio.mp3"
+                "Content-Type": "audio/opus", 
+                "Content-Disposition": "attachment; filename=audio.opus",
+                "Connection": "close"
             }
         )
 
