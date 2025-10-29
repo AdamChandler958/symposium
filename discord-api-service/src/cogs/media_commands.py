@@ -1,14 +1,15 @@
 import discord
 from discord.ext import commands
-import logging
 from collections import deque
 import asyncio
 import requests
 import urllib
 import urllib.parse
 import random
+from discord.ext import tasks
+from src.logging import setup_logger
 
-logger = logging.getLogger('discord-api-service')
+logger = setup_logger()
 STREAMING_SERVICE = "http://processing-service:3020/retrieve-audio-stream"
 FETCHING_SERVICE = "http://fetching-service:3000/stream-metadata"
 
@@ -23,6 +24,30 @@ class MediaCommands(commands.Cog):
 
         self.loop_mode = 0 
         self.original_song_queue = deque() 
+
+        self.voice_health_check.start()
+        
+    @tasks.loop(minutes=1)
+    async def voice_health_check(self):
+        for guild_id in list(self.current_track_metadata.keys()):
+            try:
+                guild = self.bot.get_guild(guild_id)
+                if not guild:
+                    continue
+
+                voice_client = guild.voice_client
+
+                if not voice_client or not voice_client.is_connected():
+                    if self.current_track_metadata.get(guild_id):
+                        self.current_track_metadata[guild_id] = None
+                    continue
+
+                if self.current_track_metadata.get(guild_id) and not voice_client.is_playing():
+                    logger.warning(f"Health Check: Detected silent audio stop in guild {guild_id}. Triggering play_next_in_queue.")
+                    voice_client.stop()
+
+            except Exception as e:
+                logger.error(f"Error in voice_health_check for guild {guild_id}: {e}")
 
     @discord.app_commands.command(name="join", description="Makes the bot join the user's current voice channel.")
     async def join_command(self, interaction: discord.Interaction):
