@@ -20,8 +20,8 @@ def read_root():
 def retrieve_audio_stream(url: str):
     logger.info(f"Received request to process URL to audio for URL: {url}")
     try:
-        yt_stream = YouTube(url)
-        audio_url = yt_stream.streams.filter(only_audio=True, use_oauth=False, allow_oauth_cache=False, use_po_token=True).first().url
+        yt_stream = YouTube(url, 'WEB')
+        audio_url = yt_stream.streams.filter(only_audio=True).first().url
 
         process = (
             ffmpeg
