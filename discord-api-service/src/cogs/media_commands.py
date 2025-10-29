@@ -26,7 +26,7 @@ class MediaCommands(commands.Cog):
         self.original_song_queue = deque() 
 
         self.voice_health_check.start()
-        
+
     @tasks.loop(minutes=1)
     async def voice_health_check(self):
         for guild_id in list(self.current_track_metadata.keys()):
@@ -48,6 +48,14 @@ class MediaCommands(commands.Cog):
 
             except Exception as e:
                 logger.error(f"Error in voice_health_check for guild {guild_id}: {e}")
+
+    async def _play_options(self, url: str):
+        return await discord.FFmpegOpusAudio.from_probe(
+                    url,
+                    before_options='-reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 5',
+                    options='-bufsize 64k'
+                )
+
 
     @discord.app_commands.command(name="join", description="Makes the bot join the user's current voice channel.")
     async def join_command(self, interaction: discord.Interaction):
@@ -119,11 +127,7 @@ class MediaCommands(commands.Cog):
             try:
                 encoded_url = urllib.parse.quote_plus(next_url)
                 full_url = f"{STREAMING_SERVICE}?url={encoded_url}"
-                source = discord.FFmpegPCMAudio(
-                    full_url,
-                    before_options='-reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 5'
-                )
-                source = discord.PCMVolumeTransformer(source, volume=0.5) 
+                source = await self._play_options(full_url)
 
                 voice_client.play(source, after=lambda e: self.play_next_in_queue(e, guild_id))
                 self.current_track_playing = next_track
@@ -172,11 +176,7 @@ class MediaCommands(commands.Cog):
                 encoded_url =  urllib.parse.quote_plus(data.get('url'))
                 full_url = f"{STREAMING_SERVICE}?url={encoded_url}"
                 logger.info(f"Attempting to stream audio from URL: {full_url}")
-                source = discord.FFmpegPCMAudio(
-                    full_url,
-                    before_options='-reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 5'
-                )
-                source = discord.PCMVolumeTransformer(source, volume=0.5) 
+                source = await self._play_options(full_url)
 
                 voice_client.play(source, after=lambda e: self.play_next_in_queue(e, interaction.guild_id))
 
