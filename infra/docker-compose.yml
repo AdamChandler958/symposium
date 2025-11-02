@@ -13,8 +13,8 @@ services:
       context: ../fetching-service
       dockerfile: Dockerfile
     image: symposium-fetching-service
-    ports:
-      - "3000:3000"
+    # ports:
+    #   - "3000:3000"
     depends_on:
       - processing-service
       - promtail
@@ -24,8 +24,8 @@ services:
       context: ../processing-service
       dockerfile: Dockerfile
     image: symposium-processing-service
-    ports:
-      - "3020:3020"
+    # ports:
+    #   - "3020:3020"
 
   loki:
     image: grafana/loki:latest
